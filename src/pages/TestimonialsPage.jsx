@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,8 +29,11 @@ const TestimonialsPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [testimonials, setTestimonials] = useState([{ author: '', content: '', rating: '', image: '' }]);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
+  const CLOUDINARY_UPLOAD_PRESET = 'shivbandhan';
+  const CLOUDINARY_CLOUD_NAME = 'dqfum2awz';
 
   useEffect(() => {
     fetchTestimonialsData();
@@ -62,6 +66,56 @@ const TestimonialsPage = () => {
       setTestimonialsData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (testimonialIndex) => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Please allow access to your photo library.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for testimonial images
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `testimonial-${testimonialIndex}-image.jpg`,
+        });
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        const uploadResult = await uploadResponse.json();
+
+        if (uploadResult.secure_url) {
+          const newTestimonials = [...testimonials];
+          newTestimonials[testimonialIndex].image = uploadResult.secure_url;
+          setTestimonials(newTestimonials);
+        } else {
+          throw new Error('Failed to upload image to Cloudinary');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', `Failed to upload image: ${error.message}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -207,7 +261,7 @@ const TestimonialsPage = () => {
         >
           {testimonial.image && (
             <Image
-              source={{ uri: `${API_BASE_URL}${testimonial.image || '/default-testimonial.jpg'}` }}
+              source={{ uri: testimonial.image }}
               className="w-full h-24"
               resizeMode="cover"
             />
@@ -274,7 +328,7 @@ const TestimonialsPage = () => {
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -328,8 +382,6 @@ const TestimonialsPage = () => {
                 </View>
               </View>
             </View>
-
-           
           </>
         ) : (
           <View className="flex-1 justify-center items-center px-5" style={{ minHeight: height * 0.6 }}>
@@ -510,14 +562,38 @@ const TestimonialsPage = () => {
                             maxLength={1}
                           />
                           
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Image URL</Text>
-                          <TextInput
-                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                            placeholder="e.g., /testimonials/jane.jpg"
-                            placeholderTextColor="#9CA3AF"
-                            value={t.image}
-                            onChangeText={(text) => handleTestimonialChange(index, 'image', text)}
-                          />
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Testimonial Image</Text>
+                          <TouchableOpacity
+                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                            onPress={() => handleImageUpload(index)}
+                            disabled={uploading}
+                          >
+                            {uploading ? (
+                              <ActivityIndicator size="small" color="#F97316" />
+                            ) : (
+                              <>
+                                <Icon name="camera" size={16} color="#F97316" />
+                                <Text className="text-sm text-gray-900 ml-2">
+                                  {t.image ? 'Change Image' : 'Upload Image'}
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                          {t.image && (
+                            <View className="mt-2">
+                              <Image
+                                source={{ uri: t.image }}
+                                className="w-24 h-24 rounded-lg"
+                                resizeMode="cover"
+                              />
+                              <TouchableOpacity
+                                className="absolute top-1 right-1 bg-red-500 p-2 rounded-full"
+                                onPress={() => handleTestimonialChange(index, 'image', '')}
+                              >
+                                <Icon name="trash" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
                         </View>
                       ))}
                       

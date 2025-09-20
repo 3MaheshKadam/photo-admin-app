@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -29,8 +30,11 @@ const AboutPage = ({ navigation }) => {
   const [bio, setBio] = useState('');
   const [image, setImage] = useState('');
   const [specializations, setSpecializations] = useState(['']);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
+  const CLOUDINARY_UPLOAD_PRESET = 'your_upload_preset'; // Replace with your Cloudinary upload preset
+  const CLOUDINARY_CLOUD_NAME = 'your_cloud_name'; // Replace with your Cloudinary cloud name
 
   useEffect(() => {
     fetchAboutData();
@@ -66,10 +70,58 @@ const AboutPage = ({ navigation }) => {
     }
   };
 
+  const handleImageUpload = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Please allow access to your photo library.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9], // Adjust aspect ratio as needed
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `about-image.jpg`,
+        });
+        formData.append('upload_preset', "shivbandhan");
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/dqfum2awz/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        const uploadResult = await uploadResponse.json();
+        console.log(uploadResult)
+        if (uploadResult.secure_url) {
+          setImage(uploadResult.secure_url);
+        } else {
+          throw new Error('Failed to upload image to Cloudinary');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', `Failed to upload image: ${error.message}`);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const openModal = (mode) => {
     console.log('Opening modal with mode:', mode);
     setModalMode(mode);
-    
+
     if (mode === 'edit' && aboutData) {
       setTitle(aboutData.title || '');
       setBio(aboutData.bio || '');
@@ -200,12 +252,12 @@ const AboutPage = ({ navigation }) => {
   return (
     <SafeAreaView className="flex-1 bg-orange-50">
       <StatusBar barStyle="dark-content" backgroundColor="#FEF7ED" />
-      
+
       {/* Enhanced Action Buttons Header */}
       <View className="bg-white px-5 py-4 border-b border-orange-200 shadow-sm">
         <Text className="text-2xl font-bold text-amber-900 mb-4">About Management</Text>
         <View className="flex-row flex-wrap gap-3">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-amber-600 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={onRefresh}
             disabled={refreshing}
@@ -213,31 +265,28 @@ const AboutPage = ({ navigation }) => {
             <Icon name="refresh" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Refresh</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-orange-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={() => openModal('create')}
           >
             <Icon name="add" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Create</Text>
           </TouchableOpacity>
-          
           {aboutData && (
             <>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-amber-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('edit')}
               >
                 <Icon name="pencil" size={16} color="#FFFFFF" />
                 <Text className="text-white text-sm font-semibold ml-2">Edit</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-red-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -262,7 +311,7 @@ const AboutPage = ({ navigation }) => {
             <View className="mb-8">
               <View className="relative rounded-b-3xl overflow-hidden mx-4 mt-4" style={{ height: height * 0.35 }}>
                 <Image
-                  source={{ uri: `${API_BASE_URL}${aboutData.image}` }}
+                  source={{ uri: aboutData.image }}
                   className="w-full h-full"
                   resizeMode="cover"
                 />
@@ -307,8 +356,6 @@ const AboutPage = ({ navigation }) => {
                 </View>
               </View>
             </View>
-
-     
           </>
         ) : (
           <View className="flex-1 justify-center items-center bg-orange-50 px-5" style={{ minHeight: height * 0.7 }}>
@@ -321,8 +368,8 @@ const AboutPage = ({ navigation }) => {
                 The about section doesn't exist yet or has been deleted. {'\n'}Create a new one to get started.
               </Text>
               <View className="flex-row gap-4">
-                <TouchableOpacity 
-                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm" 
+                <TouchableOpacity
+                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm"
                   onPress={fetchAboutData}
                 >
                   <Icon name="refresh" size={16} color="#FFFFFF" />
@@ -351,8 +398,8 @@ const AboutPage = ({ navigation }) => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
-          <View 
-            className="bg-white rounded-3xl p-6 w-full shadow-2xl" 
+          <View
+            className="bg-white rounded-3xl p-6 w-full shadow-2xl"
             style={{ maxWidth: width * 0.9, maxHeight: height * 0.85 }}
           >
             {modalMode === 'delete' ? (
@@ -396,7 +443,7 @@ const AboutPage = ({ navigation }) => {
                       {modalMode === 'create' ? 'Create About' : 'Edit About'}
                     </Text>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setModalVisible(false)}
                     className="bg-gray-100 rounded-full p-2"
                   >
@@ -406,7 +453,7 @@ const AboutPage = ({ navigation }) => {
 
                 {/* Enhanced Form Content */}
                 <View style={{ height: height * 0.55 }}>
-                  <ScrollView 
+                  <ScrollView
                     showsVerticalScrollIndicator={true}
                     style={{ flex: 1 }}
                     contentContainerStyle={{ paddingBottom: 20 }}
@@ -422,7 +469,7 @@ const AboutPage = ({ navigation }) => {
                         onChangeText={setTitle}
                       />
                     </View>
-                    
+
                     {/* Bio Field */}
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-2">Bio *</Text>
@@ -438,19 +485,43 @@ const AboutPage = ({ navigation }) => {
                         style={{ minHeight: 100 }}
                       />
                     </View>
-                    
-                    {/* Image Field */}
+
+                    {/* Image Upload Field */}
                     <View className="mb-5">
-                      <Text className="text-base font-semibold text-gray-900 mb-2">Image URL *</Text>
-                      <TextInput
-                        className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-base text-gray-900"
-                        placeholder="e.g., /aboutus-img.png"
-                        placeholderTextColor="#9CA3AF"
-                        value={image}
-                        onChangeText={setImage}
-                      />
+                      <Text className="text-base font-semibold text-gray-900 mb-2">About Image *</Text>
+                      <TouchableOpacity
+                        className={`bg-orange-50 border border-orange-200 rounded-xl p-4 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                        onPress={handleImageUpload}
+                        disabled={uploading}
+                      >
+                        {uploading ? (
+                          <ActivityIndicator size="small" color="#F97316" />
+                        ) : (
+                          <>
+                            <Icon name="camera" size={20} color="#F97316" />
+                            <Text className="text-base text-gray-900 ml-2">
+                              {image ? 'Change Image' : 'Upload Image'}
+                            </Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      {image && (
+                        <View className="mt-3">
+                          <Image
+                            source={{ uri: image }}
+                            className="w-full h-32 rounded-xl"
+                            resizeMode="cover"
+                          />
+                          <TouchableOpacity
+                            className="absolute top-2 right-2 bg-red-500 p-2 rounded-full"
+                            onPress={() => setImage('')}
+                          >
+                            <Icon name="trash" size={16} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
-                    
+
                     {/* Specializations */}
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-3">Specializations</Text>
@@ -459,9 +530,9 @@ const AboutPage = ({ navigation }) => {
                           <TextInput
                             className="flex-1 bg-orange-50 border border-orange-200 rounded-xl p-4 text-base text-gray-900 mr-3"
                             placeholder={
-                              index === 0 ? "e.g., Wedding Photography" : 
-                              index === 1 ? "e.g., Portrait Photography" : 
-                              index === 2 ? "e.g., Event Photography" : 
+                              index === 0 ? "e.g., Wedding Photography" :
+                              index === 1 ? "e.g., Portrait Photography" :
+                              index === 2 ? "e.g., Event Photography" :
                               `Specialization ${index + 1}`
                             }
                             placeholderTextColor="#9CA3AF"
@@ -478,9 +549,8 @@ const AboutPage = ({ navigation }) => {
                           )}
                         </View>
                       ))}
-                      
-                      <TouchableOpacity 
-                        className="bg-orange-500 py-3 px-4 rounded-xl flex-row items-center justify-center" 
+                      <TouchableOpacity
+                        className="bg-orange-500 py-3 px-4 rounded-xl flex-row items-center justify-center"
                         onPress={addSpecialization}
                       >
                         <Icon name="add" size={16} color="#FFFFFF" />
@@ -489,7 +559,7 @@ const AboutPage = ({ navigation }) => {
                     </View>
                   </ScrollView>
                 </View>
-                
+
                 {/* Enhanced Action Buttons */}
                 <View className="flex-row justify-between gap-3 pt-4 border-t border-gray-200">
                   <TouchableOpacity

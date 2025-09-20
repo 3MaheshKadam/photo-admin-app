@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,8 +29,11 @@ const ClientsPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [clients, setClients] = useState([{ name: '', description: '', logo: '', website: '' }]);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
+  const CLOUDINARY_UPLOAD_PRESET = 'shivbandhan';
+  const CLOUDINARY_CLOUD_NAME = 'dqfum2awz';
 
   useEffect(() => {
     fetchClientsData();
@@ -62,6 +66,56 @@ const ClientsPage = () => {
       setClientsData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (clientIndex) => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Please allow access to your photo library.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1], // Square aspect ratio for logos
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `client-${clientIndex}-logo.jpg`,
+        });
+        formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        const uploadResult = await uploadResponse.json();
+
+        if (uploadResult.secure_url) {
+          const newClients = [...clients];
+          newClients[clientIndex].logo = uploadResult.secure_url;
+          setClients(newClients);
+        } else {
+          throw new Error('Failed to upload logo to Cloudinary');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      Alert.alert('Error', `Failed to upload logo: ${error.message}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -190,7 +244,7 @@ const ClientsPage = () => {
           {client.logo && (
             <View className="bg-white h-20 w-full flex items-center justify-center">
               <Image
-                source={{ uri: `${API_BASE_URL}${client.logo || '/default-client.jpg'}` }}
+                source={{ uri: client.logo }}
                 className="w-16 h-16"
                 resizeMode="contain"
               />
@@ -262,7 +316,7 @@ const ClientsPage = () => {
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -485,16 +539,40 @@ const ClientsPage = () => {
                             style={{ minHeight: 80 }}
                           />
                           
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Logo URL</Text>
-                          <TextInput
-                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
-                            placeholder="e.g., /clients/techcorp-logo.png"
-                            placeholderTextColor="#9CA3AF"
-                            value={client.logo}
-                            onChangeText={(text) => handleClientChange(index, 'logo', text)}
-                          />
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Client Logo</Text>
+                          <TouchableOpacity
+                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                            onPress={() => handleImageUpload(index)}
+                            disabled={uploading}
+                          >
+                            {uploading ? (
+                              <ActivityIndicator size="small" color="#F97316" />
+                            ) : (
+                              <>
+                                <Icon name="camera" size={16} color="#F97316" />
+                                <Text className="text-sm text-gray-900 ml-2">
+                                  {client.logo ? 'Change Logo' : 'Upload Logo'}
+                                </Text>
+                              </>
+                            )}
+                          </TouchableOpacity>
+                          {client.logo && (
+                            <View className="mt-2">
+                              <Image
+                                source={{ uri: client.logo }}
+                                className="w-24 h-24 rounded-lg"
+                                resizeMode="contain"
+                              />
+                              <TouchableOpacity
+                                className="absolute top-1 right-1 bg-red-500 p-2 rounded-full"
+                                onPress={() => handleClientChange(index, 'logo', '')}
+                              >
+                                <Icon name="trash" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
                           
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Website URL</Text>
+                          <Text className="text-sm font-semibold text-gray-700 mb-2 mt-3">Website URL</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
                             placeholder="e.g., https://techcorp.com"

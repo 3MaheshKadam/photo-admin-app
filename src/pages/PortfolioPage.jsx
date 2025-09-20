@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Icon from 'react-native-vector-icons/Ionicons';
+import * as ImagePicker from 'expo-image-picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,8 +29,11 @@ const PortfolioPage = () => {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [projects, setProjects] = useState([{ title: '', description: '', images: [''], category: '' }]);
+  const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
+  const CLOUDINARY_UPLOAD_PRESET = 'your_upload_preset'; // Replace with your Cloudinary upload preset
+  const CLOUDINARY_CLOUD_NAME = 'your_cloud_name'; // Replace with your Cloudinary cloud name
 
   useEffect(() => {
     fetchPortfolioData();
@@ -62,6 +66,56 @@ const PortfolioPage = () => {
       setPortfolioData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (projectIndex, imageIndex) => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert('Permission Denied', 'Please allow access to your photo library.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('file', {
+          uri: result.assets[0].uri,
+          type: 'image/jpeg',
+          name: `project-${projectIndex}-image-${imageIndex}.jpg`,
+        });
+        formData.append('upload_preset', "shivbandhan");
+
+        const uploadResponse = await fetch(
+          `https://api.cloudinary.com/v1_1/dqfum2awz/image/upload`,
+          {
+            method: 'POST',
+            body: formData,
+          }
+        );
+        const uploadResult = await uploadResponse.json();
+
+        if (uploadResult.secure_url) {
+          const newProjects = [...projects];
+          newProjects[projectIndex].images[imageIndex] = uploadResult.secure_url;
+          setProjects(newProjects);
+        } else {
+          throw new Error('Failed to upload image to Cloudinary');
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      Alert.alert('Error', `Failed to upload image: ${error.message}`);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -208,7 +262,7 @@ const PortfolioPage = () => {
           className="rounded-2xl overflow-hidden"
         >
           <Image
-            source={{ uri: `${API_BASE_URL}${project.images[0] || '/default-project.jpg'}` }}
+            source={{ uri: project.images[0] || 'https://via.placeholder.com/150' }}
             className="w-full h-30"
             resizeMode="cover"
           />
@@ -276,7 +330,7 @@ const PortfolioPage = () => {
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -328,8 +382,6 @@ const PortfolioPage = () => {
                 </View>
               </View>
             </View>
-
-
           </>
         ) : (
           <View className="flex-1 justify-center items-center px-5" style={{ minHeight: height * 0.6 }}>
@@ -510,21 +562,37 @@ const PortfolioPage = () => {
                           
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Images</Text>
                           {proj.images.map((img, imgIndex) => (
-                            <View key={imgIndex} className="flex-row items-center mb-2">
-                              <TextInput
-                                className="flex-1 bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mr-2"
-                                placeholder={`e.g., /image${imgIndex + 1}.jpg`}
-                                placeholderTextColor="#9CA3AF"
-                                value={img}
-                                onChangeText={(text) => handleImageChange(projIndex, imgIndex, text)}
-                              />
-                              {proj.images.length > 1 && (
-                                <TouchableOpacity
-                                  className="bg-red-100 p-2 rounded-lg"
-                                  onPress={() => removeImage(projIndex, imgIndex)}
-                                >
-                                  <Icon name="trash" size={16} color="#EF4444" />
-                                </TouchableOpacity>
+                            <View key={imgIndex} className="mb-3">
+                              <TouchableOpacity
+                                className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                                onPress={() => handleImageUpload(projIndex, imgIndex)}
+                                disabled={uploading}
+                              >
+                                {uploading ? (
+                                  <ActivityIndicator size="small" color="#F97316" />
+                                ) : (
+                                  <>
+                                    <Icon name="camera" size={16} color="#F97316" />
+                                    <Text className="text-sm text-gray-900 ml-2">
+                                      {img ? 'Change Image' : `Upload Image ${imgIndex + 1}`}
+                                    </Text>
+                                  </>
+                                )}
+                              </TouchableOpacity>
+                              {img && (
+                                <View className="mt-2">
+                                  <Image
+                                    source={{ uri: img }}
+                                    className="w-full h-24 rounded-lg"
+                                    resizeMode="cover"
+                                  />
+                                  <TouchableOpacity
+                                    className="absolute top-1 right-1 bg-red-500 p-2 rounded-full"
+                                    onPress={() => removeImage(projIndex, imgIndex)}
+                                  >
+                                    <Icon name="trash" size={16} color="#FFFFFF" />
+                                  </TouchableOpacity>
+                                </View>
                               )}
                             </View>
                           ))}
