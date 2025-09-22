@@ -328,7 +328,7 @@ const TestimonialsPage = () => {
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
+                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
               </TouchableOpacity>
             </>
           )}
