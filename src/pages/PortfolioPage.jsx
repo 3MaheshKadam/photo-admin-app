@@ -28,12 +28,11 @@ const PortfolioPage = () => {
   const [modalMode, setModalMode] = useState('create');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [projects, setProjects] = useState([{ title: '', description: '', images: [''], category: '' }]);
+  // Changed from projects to items to match API
+  const [items, setItems] = useState([{ title: '', category: '', image: '' }]);
   const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
-  const CLOUDINARY_UPLOAD_PRESET = 'your_upload_preset'; // Replace with your Cloudinary upload preset
-  const CLOUDINARY_CLOUD_NAME = 'your_cloud_name'; // Replace with your Cloudinary cloud name
 
   useEffect(() => {
     fetchPortfolioData();
@@ -57,7 +56,19 @@ const PortfolioPage = () => {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
 
-      setPortfolioData(data);
+      // Transform API response to match component expectations
+      const transformedData = {
+        ...data,
+        // Convert items to projects format for internal use
+        projects: data.items?.map(item => ({
+          title: item.title,
+          description: item.description || '',
+          images: item.image ? [item.image] : [], // Convert single image to array
+          category: item.category
+        })) || []
+      };
+
+      setPortfolioData(transformedData);
     } catch (error) {
       console.error('Error fetching portfolio data:', error);
       if (!error.message.includes('Portfolio not found')) {
@@ -69,7 +80,7 @@ const PortfolioPage = () => {
     }
   };
 
-  const handleImageUpload = async (projectIndex, imageIndex) => {
+  const handleImageUpload = async (itemIndex) => {
     try {
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
@@ -90,7 +101,7 @@ const PortfolioPage = () => {
         formData.append('file', {
           uri: result.assets[0].uri,
           type: 'image/jpeg',
-          name: `project-${projectIndex}-image-${imageIndex}.jpg`,
+          name: `portfolio-item-${itemIndex}.jpg`,
         });
         formData.append('upload_preset', "shivbandhan");
 
@@ -104,9 +115,9 @@ const PortfolioPage = () => {
         const uploadResult = await uploadResponse.json();
 
         if (uploadResult.secure_url) {
-          const newProjects = [...projects];
-          newProjects[projectIndex].images[imageIndex] = uploadResult.secure_url;
-          setProjects(newProjects);
+          const newItems = [...items];
+          newItems[itemIndex].image = uploadResult.secure_url;
+          setItems(newItems);
         } else {
           throw new Error('Failed to upload image to Cloudinary');
         }
@@ -125,18 +136,18 @@ const PortfolioPage = () => {
     if (mode === 'edit' && portfolioData) {
       setTitle(portfolioData.title || '');
       setDescription(portfolioData.description || '');
-      setProjects(
+      // Convert projects back to items format for editing
+      setItems(
         portfolioData.projects?.map(proj => ({
           title: proj.title || '',
-          description: proj.description || '',
-          images: proj.images?.length ? proj.images : [''],
           category: proj.category || '',
-        })) || [{ title: '', description: '', images: [''], category: '' }],
+          image: proj.images?.[0] || '', // Take first image only
+        })) || [{ title: '', category: '', image: '' }],
       );
     } else if (mode === 'create') {
       setTitle('');
       setDescription('');
-      setProjects([{ title: '', description: '', images: [''], category: '' }]);
+      setItems([{ title: '', category: '', image: '' }]);
     }
     setModalVisible(true);
     console.log('Modal state:', { modalMode: mode, modalVisible: true });
@@ -144,25 +155,26 @@ const PortfolioPage = () => {
 
   const handleSave = async () => {
     if (modalMode !== 'create' && modalMode !== 'edit') return;
-    if (!title.trim() || !description.trim() || projects.some(proj => !proj.title.trim() || !proj.category.trim())) {
-      Alert.alert('Error', 'Please fill in all required fields (title, description, project titles, and categories).');
+    if (!title.trim() || items.some(item => !item.title.trim() || !item.category.trim())) {
+      Alert.alert('Error', 'Please fill in all required fields (title, item titles, and categories).');
       return;
     }
 
     setLoading(true);
     try {
+      // Transform data to match API expectations
       const body = {
         title,
-        description,
-        projects: projects
-          .filter(proj => proj.title.trim() && proj.category.trim())
-          .map(proj => ({
-            title: proj.title,
-            description: proj.description,
-            images: proj.images.filter(img => img.trim()),
-            category: proj.category,
+        description, // API might ignore this based on schema
+        items: items
+          .filter(item => item.title.trim() && item.category.trim())
+          .map(item => ({
+            title: item.title,
+            category: item.category,
+            image: item.image || '', // Single image field
           })),
       };
+      
       const method = modalMode === 'create' ? 'POST' : 'PUT';
       const response = await fetch(`${API_BASE_URL}/api/portfolio`, {
         method,
@@ -173,10 +185,9 @@ const PortfolioPage = () => {
       console.log(`${method} Response:`, { status: response.status, data });
 
       if (response.ok) {
-        setPortfolioData(data);
         setModalVisible(false);
         Alert.alert('Success', `Portfolio ${modalMode === 'create' ? 'created' : 'updated'} successfully`);
-        fetchPortfolioData();
+        fetchPortfolioData(); // Refresh data
       } else {
         throw new Error(data.error || `HTTP error! status: ${response.status}`);
       }
@@ -213,39 +224,19 @@ const PortfolioPage = () => {
     }
   };
 
-  const handleProjectChange = (index, field, value) => {
-    const newProjects = [...projects];
-    newProjects[index][field] = value;
-    setProjects(newProjects);
+  const handleItemChange = (index, field, value) => {
+    const newItems = [...items];
+    newItems[index][field] = value;
+    setItems(newItems);
   };
 
-  const handleImageChange = (projectIndex, imageIndex, value) => {
-    const newProjects = [...projects];
-    newProjects[projectIndex].images[imageIndex] = value;
-    setProjects(newProjects);
+  const addItem = () => {
+    setItems([...items, { title: '', category: '', image: '' }]);
   };
 
-  const addProject = () => {
-    setProjects([...projects, { title: '', description: '', images: [''], category: '' }]);
-  };
-
-  const removeProject = (index) => {
-    if (projects.length > 1) {
-      setProjects(projects.filter((_, i) => i !== index));
-    }
-  };
-
-  const addImage = (projectIndex) => {
-    const newProjects = [...projects];
-    newProjects[projectIndex].images.push('');
-    setProjects(newProjects);
-  };
-
-  const removeImage = (projectIndex, imageIndex) => {
-    const newProjects = [...projects];
-    if (newProjects[projectIndex].images.length > 1) {
-      newProjects[projectIndex].images = newProjects[projectIndex].images.filter((_, i) => i !== imageIndex);
-      setProjects(newProjects);
+  const removeItem = (index) => {
+    if (items.length > 1) {
+      setItems(items.filter((_, i) => i !== index));
     }
   };
 
@@ -360,9 +351,11 @@ const PortfolioPage = () => {
                   </View>
                   <Text className="text-xl font-bold text-amber-900">{portfolioData.title}</Text>
                 </View>
-                <Text className="text-base leading-6 text-amber-800 text-justify">
-                  {portfolioData.description}
-                </Text>
+                {portfolioData.description && (
+                  <Text className="text-base leading-6 text-amber-800 text-justify">
+                    {portfolioData.description}
+                  </Text>
+                )}
               </View>
             </View>
 
@@ -498,7 +491,7 @@ const PortfolioPage = () => {
                     
                     {/* Description Field */}
                     <View className="mb-5">
-                      <Text className="text-base font-semibold text-gray-900 mb-2">Description *</Text>
+                      <Text className="text-base font-semibold text-gray-900 mb-2">Description</Text>
                       <TextInput
                         className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-base text-gray-900"
                         placeholder="e.g., A collection of our best photography work..."
@@ -512,43 +505,30 @@ const PortfolioPage = () => {
                       />
                     </View>
                     
-                    {/* Projects Section */}
+                    {/* Portfolio Items Section */}
                     <View className="mb-5">
-                      <Text className="text-base font-semibold text-gray-900 mb-3">Projects</Text>
-                      {projects.map((proj, projIndex) => (
-                        <View key={projIndex} className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
+                      <Text className="text-base font-semibold text-gray-900 mb-3">Portfolio Items</Text>
+                      {items.map((item, itemIndex) => (
+                        <View key={itemIndex} className="bg-gray-50 rounded-xl p-4 mb-4 border border-gray-200">
                           <View className="flex-row justify-between items-center mb-3">
-                            <Text className="text-base font-semibold text-gray-700">Project {projIndex + 1}</Text>
-                            {projects.length > 1 && (
+                            <Text className="text-base font-semibold text-gray-700">Item {itemIndex + 1}</Text>
+                            {items.length > 1 && (
                               <TouchableOpacity
                                 className="bg-red-500 p-2 rounded-lg"
-                                onPress={() => removeProject(projIndex)}
+                                onPress={() => removeItem(itemIndex)}
                               >
                                 <Icon name="trash" size={16} color="#FFFFFF" />
                               </TouchableOpacity>
                             )}
                           </View>
                           
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Project Title *</Text>
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Item Title *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
                             placeholder="e.g., Wedding Collection 2024"
                             placeholderTextColor="#9CA3AF"
-                            value={proj.title}
-                            onChangeText={(text) => handleProjectChange(projIndex, 'title', text)}
-                          />
-                          
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Project Description</Text>
-                          <TextInput
-                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
-                            placeholder="e.g., Romantic moments captured..."
-                            placeholderTextColor="#9CA3AF"
-                            value={proj.description}
-                            onChangeText={(text) => handleProjectChange(projIndex, 'description', text)}
-                            multiline
-                            numberOfLines={3}
-                            textAlignVertical="top"
-                            style={{ minHeight: 80 }}
+                            value={item.title}
+                            onChangeText={(text) => handleItemChange(itemIndex, 'title', text)}
                           />
                           
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Category *</Text>
@@ -556,63 +536,52 @@ const PortfolioPage = () => {
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
                             placeholder="e.g., Wedding"
                             placeholderTextColor="#9CA3AF"
-                            value={proj.category}
-                            onChangeText={(text) => handleProjectChange(projIndex, 'category', text)}
+                            value={item.category}
+                            onChangeText={(text) => handleItemChange(itemIndex, 'category', text)}
                           />
                           
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Images</Text>
-                          {proj.images.map((img, imgIndex) => (
-                            <View key={imgIndex} className="mb-3">
-                              <TouchableOpacity
-                                className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
-                                onPress={() => handleImageUpload(projIndex, imgIndex)}
-                                disabled={uploading}
-                              >
-                                {uploading ? (
-                                  <ActivityIndicator size="small" color="#F97316" />
-                                ) : (
-                                  <>
-                                    <Icon name="camera" size={16} color="#F97316" />
-                                    <Text className="text-sm text-gray-900 ml-2">
-                                      {img ? 'Change Image' : `Upload Image ${imgIndex + 1}`}
-                                    </Text>
-                                  </>
-                                )}
-                              </TouchableOpacity>
-                              {img && (
-                                <View className="mt-2">
-                                  <Image
-                                    source={{ uri: img }}
-                                    className="w-full h-24 rounded-lg"
-                                    resizeMode="cover"
-                                  />
-                                  <TouchableOpacity
-                                    className="absolute top-1 right-1 bg-red-500 p-2 rounded-full"
-                                    onPress={() => removeImage(projIndex, imgIndex)}
-                                  >
-                                    <Icon name="trash" size={16} color="#FFFFFF" />
-                                  </TouchableOpacity>
-                                </View>
-                              )}
-                            </View>
-                          ))}
-                          
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Image</Text>
                           <TouchableOpacity
-                            className="bg-blue-500 py-2.5 px-3 rounded-lg flex-row items-center justify-center mt-2"
-                            onPress={() => addImage(projIndex)}
+                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center mb-3 ${uploading ? 'opacity-60' : ''}`}
+                            onPress={() => handleImageUpload(itemIndex)}
+                            disabled={uploading}
                           >
-                            <Icon name="add" size={16} color="#FFFFFF" />
-                            <Text className="text-white text-sm font-semibold ml-2">Add Image</Text>
+                            {uploading ? (
+                              <ActivityIndicator size="small" color="#F97316" />
+                            ) : (
+                              <>
+                                <Icon name="camera" size={16} color="#F97316" />
+                                <Text className="text-sm text-gray-900 ml-2">
+                                  {item.image ? 'Change Image' : 'Upload Image'}
+                                </Text>
+                              </>
+                            )}
                           </TouchableOpacity>
+                          
+                          {item.image && (
+                            <View className="mb-3">
+                              <Image
+                                source={{ uri: item.image }}
+                                className="w-full h-32 rounded-lg"
+                                resizeMode="cover"
+                              />
+                              <TouchableOpacity
+                                className="absolute top-2 right-2 bg-red-500 p-2 rounded-full"
+                                onPress={() => handleItemChange(itemIndex, 'image', '')}
+                              >
+                                <Icon name="trash" size={16} color="#FFFFFF" />
+                              </TouchableOpacity>
+                            </View>
+                          )}
                         </View>
                       ))}
                       
                       <TouchableOpacity 
                         className="bg-orange-500 py-3 px-4 rounded-xl flex-row items-center justify-center"
-                        onPress={addProject}
+                        onPress={addItem}
                       >
                         <Icon name="add" size={18} color="#FFFFFF" />
-                        <Text className="text-white text-base font-semibold ml-2">Add Project</Text>
+                        <Text className="text-white text-base font-semibold ml-2">Add Item</Text>
                       </TouchableOpacity>
                     </View>
                   </ScrollView>
@@ -635,7 +604,7 @@ const PortfolioPage = () => {
                       {loading ? 'Saving...' : modalMode === 'create' ? 'Create' : 'Update'}
                     </Text>
                   </TouchableOpacity>
-                </View>
+                  </View>
               </>
             )}
           </View>
