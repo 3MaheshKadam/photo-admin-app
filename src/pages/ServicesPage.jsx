@@ -129,7 +129,7 @@ const ServicesPage = () => {
           description: srv.description || '',
           image: srv.image || '',
           buttonText: srv.buttonText || '',
-        })) || [{ title: '', description: '', image: '', buttonText: '' }],
+        })) || [{ title: '', description: '', image: '', buttonText: '' }]
       );
     } else if (mode === 'create') {
       setTitle('');
@@ -142,7 +142,7 @@ const ServicesPage = () => {
   const handleSave = async () => {
     if (modalMode !== 'create' && modalMode !== 'edit') return;
     if (!title.trim() || services.some(srv => !srv.title.trim() || !srv.description.trim())) {
-      Alert.alert('Error', 'Please fill in all required fields (title, service titles, and descriptions).');
+      Alert.alert('Error', 'Please fill in all required fields (title, service title, and description).');
       return;
     }
 
@@ -230,25 +230,33 @@ const ServicesPage = () => {
     fetchServicesData().finally(() => setRefreshing(false));
   };
 
+  const truncateTitle = (title) => {
+    const words = title.trim().split(/\s+/);
+    return words.length > 2 ? `${words.slice(0, 2).join(' ')}..` : title;
+  };
+
   const renderServiceCard = (service, index) => (
     <View key={index} className="w-[48%] mb-4">
-      <View className="bg-white rounded-2xl shadow-lg overflow-hidden border border-orange-100">
+      <View className="bg-white rounded-2xl shadow-lg overflow-hidden border border-orange-100" style={{ height: 260 }}>
         <LinearGradient
           colors={['#FB923C', '#F97316']}
-          className="rounded-2xl overflow-hidden"
+          className="rounded-2xl overflow-hidden flex-1"
         >
           <Image
             source={{ uri: service.image || 'https://via.placeholder.com/150' }}
-            className="w-full h-30"
+            className="w-full h-32"
             resizeMode="cover"
+            onError={(e) => console.log(`Failed to load image: ${service.image}`, e.nativeEvent.error)}
           />
-          <View className="p-4">
-            <Text className="text-white text-sm font-bold mb-2">{service.title}</Text>
-            <Text className="text-white text-xs leading-4 opacity-90 mb-3" numberOfLines={3}>
-              {service.description}
-            </Text>
+          <View className="p-4 flex-1 justify-between">
+            <View>
+              <Text className="text-white text-sm font-bold mb-2">{truncateTitle(service.title)}</Text>
+              <Text className="text-white text-xs leading-4 opacity-90 mb-3" numberOfLines={3}>
+                {service.description}
+              </Text>
+            </View>
             <TouchableOpacity className="bg-white bg-opacity-90 py-2 px-4 rounded-2xl self-start">
-              <Text className="text-orange-600 text-xs font-bold">{service.buttonText}</Text>
+              <Text className="text-orange-600 text-xs font-bold">{service.buttonText || 'Learn More'}</Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>
@@ -269,12 +277,10 @@ const ServicesPage = () => {
   return (
     <SafeAreaView className="flex-1 bg-orange-50">
       <StatusBar barStyle="dark-content" backgroundColor="#FEF7ED" />
-      
-      {/* Enhanced Action Buttons Header */}
       <View className="bg-white px-5 py-4 border-b border-orange-200 shadow-sm">
         <Text className="text-2xl font-bold text-amber-900 mb-4">Services Management</Text>
         <View className="flex-row flex-wrap gap-3">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-amber-600 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={onRefresh}
             disabled={refreshing}
@@ -282,31 +288,28 @@ const ServicesPage = () => {
             <Icon name="refresh" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Refresh</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-orange-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={() => openModal('create')}
           >
             <Icon name="add" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Create</Text>
           </TouchableOpacity>
-          
           {servicesData && (
             <>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-amber-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('edit')}
               >
                 <Icon name="pencil" size={16} color="#FFFFFF" />
                 <Text className="text-white text-sm font-semibold ml-2">Edit</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-red-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -327,7 +330,6 @@ const ServicesPage = () => {
       >
         {servicesData ? (
           <>
-            {/* Enhanced Header Section */}
             <View className="px-5 pt-5 mb-8">
               <View className="bg-white rounded-2xl p-6 shadow-lg border border-orange-100">
                 <View className="flex-row items-center mb-4">
@@ -338,8 +340,6 @@ const ServicesPage = () => {
                 </View>
               </View>
             </View>
-
-            {/* Enhanced Services Section */}
             <View className="px-5 mb-8">
               <View className="bg-white rounded-2xl p-6 shadow-lg border border-orange-100">
                 <View className="flex-row items-center mb-6">
@@ -349,9 +349,7 @@ const ServicesPage = () => {
                   <Text className="text-xl font-bold text-amber-900">Our Services</Text>
                 </View>
                 <View className="flex-row flex-wrap justify-between">
-                  {servicesData.services?.map((service, index) =>
-                    renderServiceCard(service, index)
-                  )}
+                  {servicesData.services?.map((service, index) => renderServiceCard(service, index))}
                 </View>
               </View>
             </View>
@@ -367,8 +365,8 @@ const ServicesPage = () => {
                 The services section doesn't exist yet or has been deleted. {'\n'}Create a new one to get started.
               </Text>
               <View className="flex-row gap-4">
-                <TouchableOpacity 
-                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm" 
+                <TouchableOpacity
+                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm"
                   onPress={fetchServicesData}
                 >
                   <Icon name="refresh" size={16} color="#FFFFFF" />
@@ -385,11 +383,9 @@ const ServicesPage = () => {
             </View>
           </View>
         )}
-
         <View className="h-20" />
       </ScrollView>
 
-      {/* Enhanced Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -397,8 +393,8 @@ const ServicesPage = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
-          <View 
-            className="bg-white rounded-3xl p-6 w-full shadow-2xl" 
+          <View
+            className="bg-white rounded-3xl p-6 w-full shadow-2xl"
             style={{ maxWidth: width * 0.9, maxHeight: height * 0.85 }}
           >
             {modalMode === 'delete' ? (
@@ -432,7 +428,6 @@ const ServicesPage = () => {
               </>
             ) : (
               <>
-                {/* Enhanced Header */}
                 <View className="flex-row justify-between items-center mb-6">
                   <View className="flex-row items-center">
                     <View className="bg-orange-100 rounded-xl p-2 mr-3">
@@ -442,22 +437,15 @@ const ServicesPage = () => {
                       {modalMode === 'create' ? 'Create Services' : 'Edit Services'}
                     </Text>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setModalVisible(false)}
                     className="bg-gray-100 rounded-xl p-2"
                   >
                     <Icon name="close" size={20} color="#666" />
                   </TouchableOpacity>
                 </View>
-
-                {/* Enhanced Form Content */}
                 <View style={{ height: height * 0.55 }}>
-                  <ScrollView 
-                    showsVerticalScrollIndicator={true}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                  >
-                    {/* Title Field */}
+                  <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 20 }}>
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-2">Title *</Text>
                       <TextInput
@@ -468,8 +456,6 @@ const ServicesPage = () => {
                         onChangeText={setTitle}
                       />
                     </View>
-                    
-                    {/* Services Section */}
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-3">Services</Text>
                       {services.map((srv, index) => (
@@ -485,7 +471,6 @@ const ServicesPage = () => {
                               </TouchableOpacity>
                             )}
                           </View>
-                          
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Service Title *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
@@ -494,7 +479,6 @@ const ServicesPage = () => {
                             value={srv.title}
                             onChangeText={(text) => handleServiceChange(index, 'title', text)}
                           />
-                          
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Description *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
@@ -507,10 +491,11 @@ const ServicesPage = () => {
                             textAlignVertical="top"
                             style={{ minHeight: 80 }}
                           />
-                          
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Service Image</Text>
                           <TouchableOpacity
-                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center mb-3 ${
+                              uploading ? 'opacity-60' : ''
+                            }`}
                             onPress={() => handleImageUpload(index)}
                             disabled={uploading}
                           >
@@ -526,11 +511,12 @@ const ServicesPage = () => {
                             )}
                           </TouchableOpacity>
                           {srv.image && (
-                            <View className="mt-2">
+                            <View className="mb-3">
                               <Image
                                 source={{ uri: srv.image }}
                                 className="w-full h-24 rounded-lg"
                                 resizeMode="cover"
+                                onError={(e) => console.log(`Failed to load modal image: ${srv.image}`, e.nativeEvent.error)}
                               />
                               <TouchableOpacity
                                 className="absolute top-1 right-1 bg-red-500 p-2 rounded-full"
@@ -540,19 +526,17 @@ const ServicesPage = () => {
                               </TouchableOpacity>
                             </View>
                           )}
-                          
-                          <Text className="text-sm font-semibold text-gray-700 mb-2 mt-3">Button Text</Text>
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Button Text</Text>
                           <TextInput
-                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900"
-                            placeholder="e.g., Explore More"
+                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
+                            placeholder="e.g., Learn More"
                             placeholderTextColor="#9CA3AF"
                             value={srv.buttonText}
                             onChangeText={(text) => handleServiceChange(index, 'buttonText', text)}
                           />
                         </View>
                       ))}
-                      
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         className="bg-orange-500 py-3 px-4 rounded-xl flex-row items-center justify-center"
                         onPress={addService}
                       >
@@ -562,8 +546,6 @@ const ServicesPage = () => {
                     </View>
                   </ScrollView>
                 </View>
-                
-                {/* Enhanced Action Buttons */}
                 <View className="flex-row justify-between gap-3 pt-4 border-t border-gray-200">
                   <TouchableOpacity
                     className="flex-1 py-3 rounded-xl items-center bg-gray-100"
