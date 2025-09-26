@@ -27,8 +27,9 @@ const TestimonialsPage = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMode, setModalMode] = useState('create');
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [testimonials, setTestimonials] = useState([{ author: '', content: '', rating: '', image: '' }]);
+  const [testimonials, setTestimonials] = useState([
+    { name: '', text: '', title: '', company: '', image: '', rating: '' },
+  ]);
   const [uploading, setUploading] = useState(false);
 
   const API_BASE_URL = 'https://photographer-protfolio.vercel.app';
@@ -80,7 +81,7 @@ const TestimonialsPage = () => {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: [1, 1], // Square aspect ratio for testimonial images
+        aspect: [1, 1],
         quality: 0.8,
       });
 
@@ -124,19 +125,19 @@ const TestimonialsPage = () => {
     setModalMode(mode);
     if (mode === 'edit' && testimonialsData) {
       setTitle(testimonialsData.title || '');
-      setDescription(testimonialsData.description || '');
       setTestimonials(
         testimonialsData.testimonials?.map(t => ({
-          author: t.author || '',
-          content: t.content || '',
-          rating: t.rating?.toString() || '',
+          name: t.name || '',
+          text: t.text || '',
+          title: t.title || '',
+          company: t.company || '',
           image: t.image || '',
-        })) || [{ author: '', content: '', rating: '', image: '' }],
+          rating: t.rating?.toString() || '',
+        })) || [{ name: '', text: '', title: '', company: '', image: '', rating: '' }]
       );
     } else if (mode === 'create') {
       setTitle('');
-      setDescription('');
-      setTestimonials([{ author: '', content: '', rating: '', image: '' }]);
+      setTestimonials([{ name: '', text: '', title: '', company: '', image: '', rating: '' }]);
     }
     setModalVisible(true);
     console.log('Modal state:', { modalMode: mode, modalVisible: true });
@@ -146,9 +147,22 @@ const TestimonialsPage = () => {
     if (modalMode !== 'create' && modalMode !== 'edit') return;
     if (
       !title.trim() ||
-      testimonials.some(t => !t.author.trim() || !t.content.trim() || !t.rating || isNaN(t.rating) || t.rating < 1 || t.rating > 5)
+      testimonials.some(
+        t =>
+          !t.name.trim() ||
+          !t.text.trim() ||
+          !t.title.trim() ||
+          !t.company.trim() ||
+          !t.rating ||
+          isNaN(t.rating) ||
+          t.rating < 1 ||
+          t.rating > 5
+      )
     ) {
-      Alert.alert('Error', 'Please fill in all required fields (title, author, content, rating 1-5).');
+      Alert.alert(
+        'Error',
+        'Please fill in all required fields (title, name, text, job title, company, rating 1-5).'
+      );
       return;
     }
 
@@ -156,14 +170,15 @@ const TestimonialsPage = () => {
     try {
       const body = {
         title,
-        description: description.trim() || undefined,
         testimonials: testimonials
-          .filter(t => t.author.trim() && t.content.trim() && t.rating)
+          .filter(t => t.name.trim() && t.text.trim() && t.title.trim() && t.company.trim() && t.rating)
           .map(t => ({
-            author: t.author,
-            content: t.content,
-            rating: Number(t.rating),
+            name: t.name,
+            text: t.text,
+            title: t.title,
+            company: t.company,
             image: t.image || '',
+            rating: Number(t.rating),
           })),
       };
       const method = modalMode === 'create' ? 'POST' : 'PUT';
@@ -223,7 +238,7 @@ const TestimonialsPage = () => {
   };
 
   const addTestimonial = () => {
-    setTestimonials([...testimonials, { author: '', content: '', rating: '', image: '' }]);
+    setTestimonials([...testimonials, { name: '', text: '', title: '', company: '', image: '', rating: '' }]);
   };
 
   const removeTestimonial = (index) => {
@@ -246,7 +261,7 @@ const TestimonialsPage = () => {
           name={i <= rating ? 'star' : 'star-outline'}
           size={14}
           color={i <= rating ? '#F59E0B' : '#FFFFFF'}
-        />,
+        />
       );
     }
     return <View className="flex-row mb-2">{stars}</View>;
@@ -255,22 +270,16 @@ const TestimonialsPage = () => {
   const renderTestimonialCard = (testimonial, index) => (
     <View key={index} className="w-[48%] mb-4">
       <View className="bg-white rounded-2xl shadow-lg overflow-hidden border border-orange-100">
-        <LinearGradient
-          colors={['#FB923C', '#F97316']}
-          className="rounded-2xl overflow-hidden"
-        >
+        <LinearGradient colors={['#FB923C', '#F97316']} className="rounded-2xl overflow-hidden">
           {testimonial.image && (
-            <Image
-              source={{ uri: testimonial.image }}
-              className="w-full h-24"
-              resizeMode="cover"
-            />
+            <Image source={{ uri: testimonial.image }} className="w-full h-24" resizeMode="cover" />
           )}
           <View className="p-4">
-            <Text className="text-white text-sm font-bold mb-1">{testimonial.author}</Text>
+            <Text className="text-white text-sm font-bold mb-1">{testimonial.name}</Text>
+            <Text className="text-white text-xs font-medium mb-1">{testimonial.title}, {testimonial.company}</Text>
             {renderStars(testimonial.rating)}
             <Text className="text-white text-xs leading-4 opacity-90" numberOfLines={3}>
-              {testimonial.content}
+              {testimonial.text}
             </Text>
           </View>
         </LinearGradient>
@@ -291,12 +300,10 @@ const TestimonialsPage = () => {
   return (
     <SafeAreaView className="flex-1 bg-orange-50">
       <StatusBar barStyle="dark-content" backgroundColor="#FEF7ED" />
-      
-      {/* Enhanced Action Buttons Header */}
       <View className="bg-white px-5 py-4 border-b border-orange-200 shadow-sm">
         <Text className="text-2xl font-bold text-amber-900 mb-4">Testimonials Management</Text>
         <View className="flex-row flex-wrap gap-3">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-amber-600 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={onRefresh}
             disabled={refreshing}
@@ -304,31 +311,28 @@ const TestimonialsPage = () => {
             <Icon name="refresh" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Refresh</Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+          <TouchableOpacity
             className="bg-orange-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
             onPress={() => openModal('create')}
           >
             <Icon name="add" size={16} color="#FFFFFF" />
             <Text className="text-white text-sm font-semibold ml-2">Create</Text>
           </TouchableOpacity>
-          
           {testimonialsData && (
             <>
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-amber-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('edit')}
               >
                 <Icon name="pencil" size={16} color="#FFFFFF" />
                 <Text className="text-white text-sm font-semibold ml-2">Edit</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
+              <TouchableOpacity
                 className="bg-red-500 py-2.5 px-4 rounded-xl flex-row items-center shadow-sm"
                 onPress={() => openModal('delete')}
               >
                 <Icon name="trash" size={16} color="#FFFFFF" />
-                {/* <Text className="text-white text-sm font-semibold ml-2">Delete</Text> */}
+                <Text className="text-white text-sm font-semibold ml-2">Delete</Text>
               </TouchableOpacity>
             </>
           )}
@@ -349,7 +353,6 @@ const TestimonialsPage = () => {
       >
         {testimonialsData ? (
           <>
-            {/* Enhanced Header Section */}
             <View className="px-5 pt-5 mb-8">
               <View className="bg-white rounded-2xl p-6 shadow-lg border border-orange-100">
                 <View className="flex-row items-center mb-4">
@@ -358,15 +361,8 @@ const TestimonialsPage = () => {
                   </View>
                   <Text className="text-xl font-bold text-amber-900">{testimonialsData.title}</Text>
                 </View>
-                {testimonialsData.description && (
-                  <Text className="text-base leading-6 text-amber-800 text-justify">
-                    {testimonialsData.description}
-                  </Text>
-                )}
               </View>
             </View>
-
-            {/* Enhanced Testimonials Section */}
             <View className="px-5 mb-8">
               <View className="bg-white rounded-2xl p-6 shadow-lg border border-orange-100">
                 <View className="flex-row items-center mb-6">
@@ -394,8 +390,8 @@ const TestimonialsPage = () => {
                 The testimonials section doesn't exist yet or has been deleted. {'\n'}Create a new one to get started.
               </Text>
               <View className="flex-row gap-4">
-                <TouchableOpacity 
-                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm" 
+                <TouchableOpacity
+                  className="bg-amber-600 px-6 py-3 rounded-xl flex-row items-center shadow-sm"
                   onPress={fetchTestimonialsData}
                 >
                   <Icon name="refresh" size={16} color="#FFFFFF" />
@@ -412,11 +408,9 @@ const TestimonialsPage = () => {
             </View>
           </View>
         )}
-
         <View className="h-20" />
       </ScrollView>
 
-      {/* Enhanced Modal */}
       <Modal
         animationType="slide"
         transparent={true}
@@ -424,8 +418,8 @@ const TestimonialsPage = () => {
         onRequestClose={() => setModalVisible(false)}
       >
         <View className="flex-1 bg-black/50 justify-center items-center px-4">
-          <View 
-            className="bg-white rounded-3xl p-6 w-full shadow-2xl" 
+          <View
+            className="bg-white rounded-3xl p-6 w-full shadow-2xl"
             style={{ maxWidth: width * 0.9, maxHeight: height * 0.85 }}
           >
             {modalMode === 'delete' ? (
@@ -459,7 +453,6 @@ const TestimonialsPage = () => {
               </>
             ) : (
               <>
-                {/* Enhanced Header */}
                 <View className="flex-row justify-between items-center mb-6">
                   <View className="flex-row items-center">
                     <View className="bg-orange-100 rounded-xl p-2 mr-3">
@@ -469,7 +462,7 @@ const TestimonialsPage = () => {
                       {modalMode === 'create' ? 'Create Testimonials' : 'Edit Testimonials'}
                     </Text>
                   </View>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     onPress={() => setModalVisible(false)}
                     className="bg-gray-100 rounded-xl p-2"
                   >
@@ -477,14 +470,8 @@ const TestimonialsPage = () => {
                   </TouchableOpacity>
                 </View>
 
-                {/* Enhanced Form Content */}
                 <View style={{ height: height * 0.55 }}>
-                  <ScrollView 
-                    showsVerticalScrollIndicator={true}
-                    style={{ flex: 1 }}
-                    contentContainerStyle={{ paddingBottom: 20 }}
-                  >
-                    {/* Title Field */}
+                  <ScrollView showsVerticalScrollIndicator={true} contentContainerStyle={{ paddingBottom: 20 }}>
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-2">Title *</Text>
                       <TextInput
@@ -495,24 +482,7 @@ const TestimonialsPage = () => {
                         onChangeText={setTitle}
                       />
                     </View>
-                    
-                    {/* Description Field */}
-                    <View className="mb-5">
-                      <Text className="text-base font-semibold text-gray-900 mb-2">Description</Text>
-                      <TextInput
-                        className="bg-orange-50 border border-orange-200 rounded-xl p-4 text-base text-gray-900"
-                        placeholder="e.g., Hear what our clients say..."
-                        placeholderTextColor="#9CA3AF"
-                        value={description}
-                        onChangeText={setDescription}
-                        multiline
-                        numberOfLines={3}
-                        textAlignVertical="top"
-                        style={{ minHeight: 80 }}
-                      />
-                    </View>
-                    
-                    {/* Testimonials Section */}
+
                     <View className="mb-5">
                       <Text className="text-base font-semibold text-gray-900 mb-3">Testimonials</Text>
                       {testimonials.map((t, index) => (
@@ -528,29 +498,47 @@ const TestimonialsPage = () => {
                               </TouchableOpacity>
                             )}
                           </View>
-                          
-                          <Text className="text-sm font-semibold text-gray-700 mb-2">Author Name *</Text>
+
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Name *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
                             placeholder="e.g., Jane Doe"
                             placeholderTextColor="#9CA3AF"
-                            value={t.author}
-                            onChangeText={(text) => handleTestimonialChange(index, 'author', text)}
+                            value={t.name}
+                            onChangeText={(text) => handleTestimonialChange(index, 'name', text)}
                           />
-                          
+
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Job Title *</Text>
+                          <TextInput
+                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
+                            placeholder="e.g., Marketing Director"
+                            placeholderTextColor="#9CA3AF"
+                            value={t.title}
+                            onChangeText={(text) => handleTestimonialChange(index, 'title', text)}
+                          />
+
+                          <Text className="text-sm font-semibold text-gray-700 mb-2">Company *</Text>
+                          <TextInput
+                            className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
+                            placeholder="e.g., Creative Solutions Inc."
+                            placeholderTextColor="#9CA3AF"
+                            value={t.company}
+                            onChangeText={(text) => handleTestimonialChange(index, 'company', text)}
+                          />
+
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Content *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
                             placeholder="e.g., Absolutely stunning photos..."
                             placeholderTextColor="#9CA3AF"
-                            value={t.content}
-                            onChangeText={(text) => handleTestimonialChange(index, 'content', text)}
+                            value={t.text}
+                            onChangeText={(text) => handleTestimonialChange(index, 'text', text)}
                             multiline
                             numberOfLines={3}
                             textAlignVertical="top"
                             style={{ minHeight: 80 }}
                           />
-                          
+
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Rating (1-5) *</Text>
                           <TextInput
                             className="bg-white border border-gray-300 rounded-lg p-3 text-sm text-gray-900 mb-3"
@@ -561,10 +549,12 @@ const TestimonialsPage = () => {
                             keyboardType="numeric"
                             maxLength={1}
                           />
-                          
+
                           <Text className="text-sm font-semibold text-gray-700 mb-2">Testimonial Image</Text>
                           <TouchableOpacity
-                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${uploading ? 'opacity-60' : ''}`}
+                            className={`bg-white border border-gray-300 rounded-lg p-3 flex-row items-center justify-center ${
+                              uploading ? 'opacity-60' : ''
+                            }`}
                             onPress={() => handleImageUpload(index)}
                             disabled={uploading}
                           >
@@ -596,8 +586,7 @@ const TestimonialsPage = () => {
                           )}
                         </View>
                       ))}
-                      
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         className="bg-orange-500 py-3 px-4 rounded-xl flex-row items-center justify-center"
                         onPress={addTestimonial}
                       >
@@ -607,8 +596,7 @@ const TestimonialsPage = () => {
                     </View>
                   </ScrollView>
                 </View>
-                
-                {/* Enhanced Action Buttons */}
+
                 <View className="flex-row justify-between gap-3 pt-4 border-t border-gray-200">
                   <TouchableOpacity
                     className="flex-1 py-3 rounded-xl items-center bg-gray-100"
